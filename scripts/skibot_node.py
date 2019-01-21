@@ -59,15 +59,15 @@ SCREEN_HEIGHT_M = float(SCREEN_HEIGHT_PX) / PIXELS_PER_METER
 def pos_to_pixels(pos):
     """ Convert from meters to screen position. """
     return (int(pos[0] * PIXELS_PER_METER),
-            SCREEN_HEIGHT_PX - int(pos[1] * PIXELS_PER_METER)) 
+            SCREEN_HEIGHT_PX - int(pos[1] * PIXELS_PER_METER))
 
-class Skibot:
+class Skibot(object):
     """ Sliding robot. """
 
-    # Robot attributes... 
+    # Robot attributes...
     MAX_FORCE = 5.0
     MAX_TORQUE = .2
-    
+
     MASS = 1.0 # kg
     WIDTH = .3 # Meters
 
@@ -75,7 +75,7 @@ class Skibot:
     LINEAR_FRICTION = MU * MASS * GRAVITY
     MOMENT_OF_INERTIA = .5 * MASS * (WIDTH/2.0)**2
     TORQUE_FRICTION = .66 * MU * MASS * GRAVITY * (WIDTH / 2.0)
-    
+
     def __init__(self, screen, pos, theta):
         self._screen = screen
         self.set_pose(pos, theta)
@@ -91,13 +91,15 @@ class Skibot:
         self.image.convert()
 
     def set_pose(self, pos, theta):
+        """ Set pose """
         self.pos = np.array(pos, dtype='float64')
         self.theta = theta
 
     def set_vel_zero(self):
+        """ Set all velocities to zero. """
         self.vel = np.array([0, 0], dtype='float64')
         self.vel_rot = 0.0
-        
+
     def update(self, wrench, dt):
         """Update the position and velocity based on the thrust.  Redraw the
         robot at the new position.
@@ -125,13 +127,13 @@ class Skibot:
         self.vel_rot = angular_vel_fric
 
         # Linear component
-    
+
         # FIRST, calculate velocity in the absense of friction
         force = np.clip(wrench.force.x, -self.MAX_FORCE, self.MAX_FORCE)
         linear_acc = (force / self.MASS)
         x_acc = np.sin(self.theta + np.pi/2) * linear_acc
         y_acc = np.cos(self.theta + np.pi/2) * linear_acc
-        acc = np.array([x_acc, y_acc],  dtype='float32')
+        acc = np.array([x_acc, y_acc], dtype='float32')
         no_fric_vel = self.vel + acc * dt
 
         # Friction acts in the opposite direction...
@@ -175,12 +177,12 @@ class Skibot:
                    * .5)
         pixel_y = (self.pos[1]*PIXELS_PER_METER-surf.get_rect().height
                    * .5)
-        self._screen.blit(surf,(pixel_x, pixel_y))
-                              
-                              
+        self._screen.blit(surf, (pixel_x, pixel_y))
 
 
 class SkibotNode(object):
+    """ ROS Skibot node. """
+    
     def __init__(self):
         rospy.init_node('rocket_bot')
         rospy.Subscriber('thrust', Wrench, self.wrench_callback)
@@ -192,7 +194,7 @@ class SkibotNode(object):
         rospy.Service('teleport', Teleport,
                       self.handle_teleport_service)
 
-        # load and prep arrow image. 
+        # load and prep arrow image.
         arrow_file = roslib.packages.resource_file('skibot', 'images',
                                                    'arrow.png')
         self.arrow_img = pygame.image.load(arrow_file)
@@ -200,7 +202,7 @@ class SkibotNode(object):
                                                       (38, 8))
         square = pygame.Surface((38, 38), flags=SRCALPHA)
         square.fill((255, 255, 255, 0))
-        square.blit(self.arrow_img, (0,15))
+        square.blit(self.arrow_img, (0, 15))
         self.arrow_img = square
 
         self.cur_wrench = Wrench()
@@ -209,11 +211,11 @@ class SkibotNode(object):
     def wrench_callback(self, wrench):
         self.thrust_start = time.time()
         self.cur_wrench = wrench
-        
+
     def target_pose_callback(self, pose_msg):
         self.target_pose = pose_msg
         self.target_point = None
-        
+
     def target_point_callback(self, point_msg):
         self.target_point = point_msg
         self.target_pose = None
@@ -244,6 +246,7 @@ class SkibotNode(object):
 
         self.rocket = Skibot(screen, (SCREEN_WIDTH_M/2,
                                       SCREEN_HEIGHT_M/2), 0.0)
+
         last_pub = 0.0
         rate = rospy.Rate(refresh_rate)
         done = False
@@ -255,7 +258,7 @@ class SkibotNode(object):
 
             rate.sleep()
             screen.fill((255, 255, 255))
-            
+
             if ((self.cur_wrench.force.x != 0 or
                  self.cur_wrench.torque.z != 0) and
                 time.time() > self.thrust_start + .6):
@@ -278,11 +281,11 @@ class SkibotNode(object):
                 pixel_pos = pos_to_pixels((self.target_point.x,
                                            self.target_point.y))
                 pygame.draw.circle(screen, (0, 255, 0), pixel_pos, 5)
-               
+
             pygame.display.flip()
 
             if time.time() > last_pub + 1.0/pub_rate - 1/refresh_rate:
-                angle = (self.rocket.theta + np.pi) % (2 * np.pi ) - np.pi
+                angle = (self.rocket.theta + np.pi) % (2 * np.pi) - np.pi
 
 
                 pose = Pose(self.rocket.pos[0], float(SCREEN_HEIGHT_PX) /
