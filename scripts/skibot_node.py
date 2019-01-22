@@ -154,7 +154,6 @@ class Skibot(object):
         self.pos += self.vel * dt
         self.theta += self.vel_rot * dt
 
-
         # Handle bouncing.
         if self.pos[0] > float(self._screen.get_width()) / PIXELS_PER_METER:
             self.pos[0] = float(self._screen.get_width()) / PIXELS_PER_METER
@@ -169,7 +168,6 @@ class Skibot(object):
             self.pos[1] = 0
             self.vel[1] = -self.vel[1]
 
-
         # Draw the robot.
         surf = pygame.transform.rotozoom(self.image,
                                          np.rad2deg(self.theta), 1.0)
@@ -182,7 +180,7 @@ class Skibot(object):
 
 class SkibotNode(object):
     """ ROS Skibot node. """
-    
+
     def __init__(self):
         rospy.init_node('skibot_node')
         rospy.Subscriber('thrust', Wrench, self.wrench_callback)
@@ -191,9 +189,20 @@ class SkibotNode(object):
         self.target_pose = None
         self.target_point = None
         self.loc_pub = rospy.Publisher('pose', Pose, queue_size=10)
+        self.pub_rate = 35.0
         rospy.Service('teleport', Teleport,
                       self.handle_teleport_service)
 
+
+        # Start pygame...
+        pygame.init()
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH_PX,
+                                               SCREEN_HEIGHT_PX))
+        self.refresh_rate = 100
+        pygame.display.set_caption('Skibot 354')
+        self.rocket = Skibot(self.screen, (SCREEN_WIDTH_M/2,
+                                           SCREEN_HEIGHT_M/2), 0.0)
+        
         # load and prep arrow image.
         arrow_file = roslib.packages.resource_file('skibot', 'images',
                                                    'arrow.png')
@@ -204,6 +213,7 @@ class SkibotNode(object):
         square.fill((255, 255, 255, 0))
         square.blit(self.arrow_img, (0, 15))
         self.arrow_img = square
+        self.arrow_img.convert()
 
         self.cur_wrench = Wrench()
         self.thrust_start = 0
@@ -227,6 +237,8 @@ class SkibotNode(object):
             teleport_srv.y < 0 or teleport_srv.y > SCREEN_HEIGHT_M):
             rospy.loginfo("Invalid teleport request: {}".format(teleport_srv))
             return TeleportResponse(False)
+        while self.rocket is None and not rospy.is_shutdown():
+            rospy.sleep(.1)
         self.rocket.set_pose((teleport_srv.x, teleport_srv.y),
                              teleport_srv.theta)
         self.rocket.set_vel_zero()
@@ -235,20 +247,8 @@ class SkibotNode(object):
 
 
     def run(self):
-        pygame.init()
-        screen = pygame.display.set_mode((SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX))
-        clock = pygame.time.Clock()
-        pub_rate = 35.0
-        refresh_rate = 100
-
-        pygame.display.set_caption('Skibot 354')
-        self.arrow_img.convert()
-
-        self.rocket = Skibot(screen, (SCREEN_WIDTH_M/2,
-                                      SCREEN_HEIGHT_M/2), 0.0)
-
         last_pub = 0.0
-        rate = rospy.Rate(refresh_rate)
+        rate = rospy.Rate(self.refresh_rate)
         done = False
         while not rospy.is_shutdown() and not done:
 
@@ -257,7 +257,7 @@ class SkibotNode(object):
                     done = True
 
             rate.sleep()
-            screen.fill((255, 255, 255))
+            self.screen.fill((255, 255, 255))
 
             if ((self.cur_wrench.force.x != 0 or
                  self.cur_wrench.torque.z != 0) and
@@ -265,7 +265,7 @@ class SkibotNode(object):
                 # Stop obeying last wrench after .6 seconds.
                 self.cur_wrench = Wrench()
 
-            self.rocket.update(self.cur_wrench, 1.0/refresh_rate)
+            self.rocket.update(self.cur_wrench, 1.0/self.refresh_rate)
 
             if self.target_pose is not None:
                 pixel_pos = pos_to_pixels((self.target_pose.x,
@@ -273,20 +273,20 @@ class SkibotNode(object):
                 angle = np.rad2deg(self.target_pose.theta)
                 surf = pygame.transform.rotozoom(self.arrow_img,
                                                  angle, 1.0)
-                screen.blit(surf, (pixel_pos[0] -
-                                   surf.get_rect().width * .5,
-                                   (pixel_pos[1] -
-                                    surf.get_rect().height * .5)))
+                self.screen.blit(surf, (pixel_pos[0] -
+                                        surf.get_rect().width * .5,
+                                        (pixel_pos[1] -
+                                         surf.get_rect().height * .5)))
             elif self.target_point is not None:
                 pixel_pos = pos_to_pixels((self.target_point.x,
                                            self.target_point.y))
-                pygame.draw.circle(screen, (0, 255, 0), pixel_pos, 5)
+                pygame.draw.circle(self.screen, (0, 255, 0), pixel_pos, 5)
 
             pygame.display.flip()
 
-            if time.time() > last_pub + 1.0/pub_rate - 1/refresh_rate:
+            if (time.time() > (last_pub + 1.0/self.pub_rate -
+                               1/self.refresh_rate)):
                 angle = (self.rocket.theta + np.pi) % (2 * np.pi) - np.pi
-
 
                 pose = Pose(self.rocket.pos[0], float(SCREEN_HEIGHT_PX) /
                             PIXELS_PER_METER - self.rocket.pos[1], angle,
