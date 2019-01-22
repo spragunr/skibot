@@ -184,7 +184,7 @@ class SkibotNode(object):
     """ ROS Skibot node. """
     
     def __init__(self):
-        rospy.init_node('rocket_bot')
+        rospy.init_node('skibot_node')
         rospy.Subscriber('thrust', Wrench, self.wrench_callback)
         rospy.Subscriber('target_pose', Pose, self.target_pose_callback)
         rospy.Subscriber('target_point', Point, self.target_point_callback)
