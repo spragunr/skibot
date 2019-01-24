@@ -12,7 +12,7 @@ A turtlesim style ROS simulator with simple physics.
 	Force applied to the Skibot. The skibot will execute the command
 	for .6 seconds before timing out. Only `force.x` and `torque.z`
 	are used. All other fields will be ignored. Linear force is
-	clipped to (-3.0, 3.0) and torque is clipped to (-.2, .2).
+	clipped to (-5.0, 5.0) and torque is clipped to (-.2, .2).
 	
 *  `target_pose`  (`skibot/Pose`)
 
