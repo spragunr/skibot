@@ -2,6 +2,8 @@
 
 A turtlesim style ROS simulator with simple physics.
 
+see instead: <https://github.com/JMU-ROBOTICS-VIVA/skibot>
+
 ## Nodes
 
 ### skibot_node
